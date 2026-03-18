@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Category extends Model
+class Unit extends Model
 {
     use HasFactory;
 
-    protected $table = 'categories';
+    protected $table = 'units';
 
     protected $fillable = [
         'name'
@@ -18,6 +18,6 @@ class Category extends Model
 
     public function products(): HasMany
     {
-        return $this->hasMany(Product::class, 'category_id');
+        return $this->hasMany(Product::class, 'unit_id');
     }
 }

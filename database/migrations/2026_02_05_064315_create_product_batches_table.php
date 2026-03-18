@@ -11,15 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('transaction_items', function (Blueprint $table) {
+        Schema::create('product_batches', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('trx_id')->constrained('transactions')->cascadeOnDelete();
             $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
-            $table->foreignId('batch_id')->constrained('product_batches')->cascadeOnDelete();
-            $table->string('product_name');
-            $table->integer('qty');
-            $table->decimal('unit_price', 10, 2);
-            $table->decimal('subtotal', 10, 2);
+            $table->string('batch_number')->nullable();
+            $table->date('exp_date')->nullable();
+            $table->integer('stock')->default(0);
+            $table->decimal('buy_price', 10, 2);
+            $table->softDeletes('deleted_at');
             $table->timestamps();
         });
     }
@@ -29,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('transaction_items');
+        Schema::dropIfExists('product_batches');
     }
 };

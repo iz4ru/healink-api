@@ -2,32 +2,33 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
+use App\Models\Unit;
 use Illuminate\Http\Request;
 
-class CategoryController extends Controller
+class UnitController extends Controller
 {
     public function store(Request $request) {
         $request->validate(['name' => 'required|string|max:255'],
         [
-            'name.required' => 'Nama kategori harus diisi',
+            'name.required' => 'Nama jenis satuan harus diisi',
         ]);
-        $item = Category::create(['name' => $request->name]); 
+        // Untuk batch, ganti 'name' jadi 'batch_number'
+        $item = Unit::create(['name' => $request->name]); 
         return response()->json(['success' => true, 'message' => 'Berhasil ditambahkan', 'data' => $item]);
     }
 
     public function update(Request $request, $id) {
         $request->validate(['name' => 'required|string|max:255'],
         [
-            'name.required' => 'Nama kategori harus diisi',
+            'name.required' => 'Nama jenis satuan harus diisi',
         ]);
-        $item = Category::findOrFail($id);
+        $item = Unit::findOrFail($id);
         $item->update(['name' => $request->name]);
         return response()->json(['success' => true, 'message' => 'Berhasil diperbarui']);
     }
 
     public function destroy($id) {
-        $item = Category::findOrFail($id);
+        $item = Unit::findOrFail($id);
         $item->delete();
         return response()->json(['success' => true, 'message' => 'Berhasil dihapus']);
     }

@@ -13,17 +13,14 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('category_id')->constrained('categories')->references('id')->cascadeOnDelete();
+            $table->foreignId('unit_id')->nullable()->constrained('units')->nullOnDelete();
             $table->string('product_name');
             $table->string('barcode')->unique()->nullable();
-            $table->string('batch_number')->nullable();
-            $table->date('exp_date');
-            $table->string('unit'); // (strip, botol, box, tablet)
-            $table->decimal('buy_price', 10, 2);
             $table->decimal('sell_price', 10, 2);
-            $table->integer('stock')->default(0);
+            $table->text('description')->nullable();
             $table->integer('min_stock')->default(10);
-            $table->string('image_url')->nullable();
+            $table->text('image_url')->nullable();
+            $table->softDeletes('deleted_at');
             $table->timestamps();
         });
     }

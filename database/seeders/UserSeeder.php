@@ -17,7 +17,7 @@ class UserSeeder extends Seeder
     {
         // Admin
         User::create([
-            'name' => 'Admin',
+            'name' => 'Satria Admin',
             'email' => 'admin@healink.test',
             'username' => 'admin',
             'email_verified_at' => now(),
@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
 
         // Owner
         User::create([
-            'name' => 'Owner',
+            'name' => 'Satria Owner',
             'email' => 'owner@healink.test',
             'username' => 'owner',
             'email_verified_at' => now(),
@@ -43,7 +43,7 @@ class UserSeeder extends Seeder
 
         // Cashier
         User::create([
-            'name' => 'Cashier',
+            'name' => 'Satria Cashier',
             'email' => 'cashier@healink.test',
             'username' => 'cashier',
             'email_verified_at' => now(),
