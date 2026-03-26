@@ -53,5 +53,18 @@ class UserSeeder extends Seeder
             'is_active' => true,
             'remember_token' => Str::random(10),
         ]);
+
+        // Cashier 2
+        User::create([
+            'name' => 'Satria Cashier 2',
+            'email' => 'cashier2@healink.test',
+            'username' => 'cashier2',
+            'email_verified_at' => now(),
+            'password' => Hash::make('password'),
+            'role' => 'cashier',
+            'phone' => '081200000003',
+            'is_active' => true,
+            'remember_token' => Str::random(10),
+        ]);
     }
 }

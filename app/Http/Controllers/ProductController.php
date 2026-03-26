@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Log;
 use App\Models\Product;
 use App\Models\Unit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -41,7 +44,16 @@ class ProductController extends Controller
                     break;
             }
 
-            $products = $query->get();
+            if ($request->filled('search')) {
+                $search = strtolower(trim($request->search)); 
+                
+                $query->where(function($q) use ($search) {
+                    $q->where('barcode', $search)
+                        ->orWhereRaw('LOWER(product_name) LIKE ?', ["%{$search}%"]);
+                });
+            }
+
+            $products = $query->paginate(12);
 
             return response()->json(
                 [
@@ -87,14 +99,28 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate(
+        $cleanName = ucwords(strtolower(trim($request->product_name)));
+        $request->merge(['product_name' => $cleanName]);
+
+            $data = $request->validate(
             [
-                'product_name' => 'required|string|max:255',
+                'product_name' => 'required|string|max:255|unique:products,product_name',
                 'barcode' => 'nullable|string|max:255|unique:products,barcode',
                 'category_ids' => 'required|array',
                 'category_ids.*' => 'exists:categories,id',
                 'unit_id' => 'required|exists:units,id',
-                'sell_price' => 'required|numeric|min:0|gte:batch.buy_price',
+                'sell_price' => [
+                    'required',
+                    'numeric',
+                    'min:0',
+                    function ($attribute, $value, $fail) use ($request) {
+                        $buyPrice = data_get($request->all(), 'batch.buy_price', 0);
+
+                        if ($value < $buyPrice) {
+                            $fail('Harga jual tidak boleh di bawah harga beli.');
+                        }
+                    },
+                ],
                 'min_stock' => 'nullable|integer|min:0',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
@@ -105,16 +131,14 @@ class ProductController extends Controller
                     'nullable',
                     'string',
                     'max:255',
-                    // Rule unik jika digabung dengan product_name (mencegah duplikasi batch saat input)
-                    // Jika migration menggunakan unique(['product_id', 'batch_number'])
                 ],
                 'batch.exp_date' => 'nullable|date|after:today',
             ],
             [
                 'product_name.required' => 'Nama produk tidak boleh kosong.',
+                'product_name.unique' => 'Nama produk sudah terdaftar.',
                 'barcode.unique' => 'Barcode ini sudah terdaftar untuk produk lain.',
                 'sell_price.required' => 'Harga jual wajib diisi.',
-                'sell_price.gte' => 'Harga jual tidak boleh di bawah harga beli.',
                 'category_ids.required' => 'Silakan pilih kategori produk.',
                 'category_ids.*.exists' => 'Kategori yang dipilih sudah dihapus dari database.',
                 'unit_id.required' => 'Silakan pilih satuan produk.',
@@ -148,26 +172,34 @@ class ProductController extends Controller
             }
         }
 
+        $user = Auth::user();
+
         DB::beginTransaction();
 
         try {
             $product = Product::create([
-                'product_name' => $request->product_name,
-                'barcode' => $request->barcode,
-                'unit_id' => $request->unit_id,
-                'sell_price' => $request->sell_price,
-                'min_stock' => $request->min_stock ?? 0,
-                'description' => $request->description,
+                'product_name' => $data['product_name'],
+                'barcode' => $data['barcode'] ?? null,
+                'unit_id' => $data['unit_id'],
+                'sell_price' => $data['sell_price'],
+                'min_stock' => $data['min_stock'] ?? 0,
+                'description' => $data['description'] ?? null,
                 'image_url' => $imageUrl,
             ]);
 
             $product->categories()->sync($request->category_ids);
-
+            
             $product->batches()->create([
-                'batch_number' => $request->input('batch.batch_number'),
-                'exp_date' => $request->input('batch.exp_date'),
-                'buy_price' => $request->input('batch.buy_price'),
-                'stock' => $request->input('batch.stock'),
+                'batch_number' => $data['batch']['batch_number'] ?? null,
+                'exp_date' => $data['batch']['exp_date'] ?? null,
+                'buy_price' => $data['batch']['buy_price'],
+                'stock' => $data['batch']['stock'],
+            ]);
+
+            Log::create([
+                'user_id' => $user->id,
+                'activity' => 'Tambah data produk',
+                'detail' => $user->name . ' menambahkan produk ' . $product->product_name . ' dengan stok awal ' . $data['batch']['stock'],
             ]);
 
             DB::commit();
@@ -176,7 +208,7 @@ class ProductController extends Controller
                 [
                     'success' => true,
                     'message' => 'Produk berhasil ditambahkan',
-                    'data' => $product->load('batches'),
+                    'data' => $product->load(['batches', 'categories']),
                 ],
                 201,
             );
@@ -200,7 +232,6 @@ class ProductController extends Controller
     public function show($id)
     {
         try {
-            // Gunakan 'with' untuk menarik semua relasi yang dibutuhkan Flutter
             $product = Product::with(['categories', 'unit', 'batches'])->find($id);
 
             if (!$product) {
@@ -233,11 +264,19 @@ class ProductController extends Controller
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $cleanName = ucwords(strtolower(trim($request->product_name)));
+        $request->merge(['product_name' => $cleanName]);
 
-        $request->validate(
+        $product = Product::with('categories', 'batches')->findOrFail($id);
+
+        $data = $request->validate(
             [
-                'product_name' => 'required|string|max:255',
+                'product_name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('products', 'product_name')->ignore($product->id),
+                ],
                 'barcode' => 'nullable|string|max:255|unique:products,barcode,' . $id,
                 'category_ids' => 'required|array',
                 'category_ids.*' => 'exists:categories,id',
@@ -273,6 +312,7 @@ class ProductController extends Controller
                 'stock_qty.required_with' => 'Jumlah stok wajib diisi.',
 
                 'product_name.required' => 'Nama produk wajib diisi.',
+                'product_name.unique' => 'Nama produk sudah terdaftar.',
                 'barcode.unique' => 'Barcode ini sudah terdaftar untuk produk lain.',
                 'category_ids.required' => 'Silakan pilih minimal 1 kategori.',
                 'category_ids.*.exists' => 'Kategori yang dipilih sudah dihapus dari database.',
@@ -284,6 +324,35 @@ class ProductController extends Controller
         );
 
         $disk = 'supabase';
+        $user = Auth::user();
+
+        $oldName = $product->product_name;
+
+        $changes = [];
+
+        if ($data['product_name'] !== $product->product_name) {
+            $changes[] = "nama produk: {$product->product_name} → {$data['product_name']}";
+        }
+
+        if ($data['sell_price'] != $product->sell_price) {
+            $changes[] = "harga jual: {$product->sell_price} → {$data['sell_price']}";
+        }
+
+        if (array_key_exists('barcode', $data) && $data['barcode'] !== $product->barcode) {
+            $changes[] = "barcode: {$product->barcode} → {$data['barcode']}";
+        }
+
+        if (array_key_exists('min_stock', $data) && $data['min_stock'] != $product->min_stock) {
+            $changes[] = "min stok: {$product->min_stock} → {$data['min_stock']}";
+        }
+
+        if (array_key_exists('description', $data) && $data['description'] !== $product->description) {
+            $changes[] = "deskripsi diperbarui";
+        }
+
+        if ($request->hasFile('image')) {
+            $changes[] = "gambar produk diperbarui";
+        }
 
         try {
             DB::beginTransaction();
@@ -305,53 +374,79 @@ class ProductController extends Controller
             }
 
             $product->update([
-                'product_name' => $request->product_name ?? $product->product_name,
-                'barcode' => $request->barcode ?? $product->barcode,
-                'unit_id' => $request->unit_id ?? $product->unit_id,
-                'sell_price' => $request->sell_price ?? $product->sell_price,
-                'min_stock' => $request->min_stock ?? $product->min_stock,
-                'description' => $request->description ?? $product->description,
+                'product_name' => $data['product_name'],
+                'barcode' => $data['barcode'] ?? $product->barcode,
+                'unit_id' => $data['unit_id'],
+                'sell_price' => $data['sell_price'],
+                'min_stock' => $data['min_stock'] ?? $product->min_stock,
+                'description' => $data['description'] ?? $product->description,
             ]);
 
-            if ($request->has('category_ids')) {
-                $product->categories()->sync($request->category_ids);
+            // compare kategori
+            $oldCategories = $product->categories->pluck('id')->toArray();
+            $newCategories = $data['category_ids'];
+
+            sort($oldCategories);
+            sort($newCategories);
+
+            if ($oldCategories !== $newCategories) {
+                $product->categories()->sync($newCategories);
+                $changes[] = "kategori produk diperbarui";
             }
 
-            if ($request->filled('new_batch_number')) {
+            if (!empty($data['new_batch_number'])) {
                 $product->batches()->create([
-                    'batch_number' => $request->new_batch_number,
-                    'exp_date' => $request->exp_date,
-                    'buy_price' => $request->buy_price,
-                    'stock' => $request->stock_qty, // Stok langsung bertambah sejumlah qty awal
+                    'batch_number' => $data['new_batch_number'],
+                    'exp_date' => $data['exp_date'],
+                    'buy_price' => $data['buy_price'],
+                    'stock' => $data['stock_qty'],
                 ]);
-            }
 
-            elseif ($request->filled('batch_id')) {
-                $batch = $product->batches()->where('id', $request->batch_id)->first();
+                $changes[] = "menambahkan batch baru ({$data['new_batch_number']}) dengan stok {$data['stock_qty']}";
+            } elseif (!empty($data['batch_id'])) {
+                $batch = $product->batches()->where('id', $data['batch_id'])->first();
 
                 if ($batch) {
+                    if (!empty($data['buy_price']) && $data['buy_price'] != $batch->buy_price) {
+                        $changes[] = "harga beli batch: {$batch->buy_price} → {$data['buy_price']}";
+                    }
+
+                    if (!empty($data['exp_date']) && $data['exp_date'] != $batch->exp_date) {
+                        $changes[] = "exp date batch diperbarui";
+                    }
+
                     $batch->update([
-                        'exp_date' => $request->exp_date ?? $batch->exp_date,
-                        'buy_price' => $request->buy_price ?? $batch->buy_price,
+                        'exp_date' => $data['exp_date'] ?? $batch->exp_date,
+                        'buy_price' => $data['buy_price'] ?? $batch->buy_price,
                     ]);
 
-                    if ($request->filled('stock_action') && $request->filled('stock_qty')) {
-                        $qty = (int) $request->stock_qty;
+                    if (!empty($data['stock_action']) && !empty($data['stock_qty'])) {
+                        $qty = (int) $data['stock_qty'];
 
-                        if ($request->stock_action === 'add') {
+                        if ($data['stock_action'] === 'add') {
+                            $changes[] = "menambah stok batch +{$qty}";
                             $batch->increment('stock', $qty);
-                        } elseif ($request->stock_action === 'reduce') {
+                        } elseif ($data['stock_action'] === 'reduce') {
                             if ($qty > $batch->stock) {
                                 throw new \Exception("Gagal: Jumlah pengurangan ($qty) melebihi stok batch yang ada ({$batch->stock}).");
                             }
+                            $changes[] = "mengurangi stok batch -{$qty}";
                             $batch->decrement('stock', $qty);
                         }
-                        $batch->save();
                     }
                 }
             }
 
+            if (!empty($changes)) {
+                Log::create([
+                    'user_id' => $user->id,
+                    'activity' => 'Ubah data produk',
+                    'detail' => $user->name . ' memperbarui produk ' . $oldName . ' (ID: ' . $id . ') (' . implode(', ', $changes) . ')',
+                ]);
+            }
+
             DB::commit();
+
             return response()->json(
                 [
                     'success' => true,
@@ -361,6 +456,7 @@ class ProductController extends Controller
             );
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(
                 [
                     'success' => false,
@@ -371,9 +467,12 @@ class ProductController extends Controller
         }
     }
 
-    // Soft Delete
     public function destroy($id)
     {
+        $user = Auth::user();
+
+        DB::beginTransaction();
+
         try {
             $product = Product::findOrFail($id);
 
@@ -381,32 +480,37 @@ class ProductController extends Controller
                 $product->delete();
                 $message = 'Produk diarsipkan (Soft Delete) karena sudah memiliki riwayat penjualan.';
             } else {
-                if ($product->image_url && str_contains($product->image_url, 'storage/products/')) {
-                    $oldPath = explode('products/', $product->image_url)[1] ?? null;
-                    if ($oldPath) {
-                        Storage::disk('supabase')->delete('products/' . $oldPath);
-                    }
+                if ($product->image_url) {
+                    $path = parse_url($product->image_url, PHP_URL_PATH);
+                    $filename = basename($path);
+
+                    Storage::disk('supabase')->delete('products/' . $filename);
                 }
 
                 $product->forceDelete();
                 $message = 'Produk dan gambar berhasil dihapus permanen.';
             }
 
-            return response()->json(
-                [
-                    'success' => true,
-                    'message' => $message,
-                ],
-                200,
-            );
+            Log::create([
+                'user_id' => $user->id,
+                'activity' => 'Hapus data produk',
+                'detail' => $user->name . ' menghapus produk ' . $product->product_name . ' (ID: ' . $id . ')' . ' (' . $message . ')',
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+            ], 200);
+
         } catch (\Exception $e) {
-            return response()->json(
-                [
-                    'success' => false,
-                    'message' => 'Gagal menghapus produk: ' . $e->getMessage(),
-                ],
-                500,
-            );
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus produk: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

@@ -10,7 +10,6 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        // VALIDASI
         $request->validate([
             'login'    => ['required', 'string'],
             'password' => ['required', 'string'],
@@ -21,7 +20,6 @@ class AuthController extends Controller
             ? 'email'
             : 'username';
 
-        // CEK USER ADA
         $user = User::where($loginField, $loginValue)->first();
 
         if (!$user) {
@@ -30,21 +28,18 @@ class AuthController extends Controller
             ], 404);
         }
 
-        // CEK AKUN AKTIF
         if (!$user->is_active) {
             return response()->json([
                 'message' => 'Akun Anda tidak aktif. Silakan hubungi owner / admin.',
             ], 403);
         }
 
-        // CEK PASSWORD
         if (!Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Password salah.',
             ], 401);
         }
 
-        // BUAT TOKEN (Sanctum)
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -60,11 +55,8 @@ class AuthController extends Controller
         ], 200);
     }
 
-    // LOGOUT
     public function logout(Request $request)
     {
-        // $request->user()->tokens()->where('id', $request->user()->currentAccessToken()->id)->delete();
-
         $bearerToken = $request->bearerToken(); // "1|abc123"
         $tokenId = explode('|', $bearerToken, 2)[0]; // "1"
         

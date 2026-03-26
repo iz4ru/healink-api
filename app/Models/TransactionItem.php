@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TransactionItem extends Model
 {
@@ -20,4 +22,19 @@ class TransactionItem extends Model
         'unit_price',
         'subtotal'
     ];
+
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class, 'trx_id');
+    }
+    
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(ProductBatch::class, 'batch_id');
+    }
 }
