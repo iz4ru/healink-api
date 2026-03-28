@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProductBatchController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\TransactionController;
@@ -16,6 +17,9 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
+
+    Route::post('/save-fcm-token', [UserController::class, 'saveFcmToken']);
+    Route::post('/send-notification', [NotificationController::class, 'sendNotification']);
 
     Route::post('/logout', [AuthController::class, 'logout']);
 

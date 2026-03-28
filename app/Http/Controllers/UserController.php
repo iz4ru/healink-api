@@ -446,4 +446,25 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    public function saveFcmToken(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'device_info' => 'nullable|string'
+        ]);
+
+        $currentUser = Auth::user();
+
+        // Menyimpan token baru atau memperbarui info perangkat jika token sudah ada
+        $currentUser->fcmTokens()->updateOrCreate(
+            ['token' => $request->token],
+            ['device_info' => $request->device_info]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token FCM berhasil disimpan.'
+        ], 200);
+    }
 }
