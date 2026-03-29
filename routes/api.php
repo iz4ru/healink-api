@@ -18,10 +18,15 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
 
-    Route::post('/save-fcm-token', [UserController::class, 'saveFcmToken']);
-    Route::post('/send-notification', [NotificationController::class, 'sendNotification']);
-
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Notifikasi
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread', [NotificationController::class, 'checkUnread']);
+    Route::patch('/notifications/mark-multiple-read', [NotificationController::class, 'markMultipleAsRead']);
+    Route::patch('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->whereNumber('id');
+    Route::post('/fcm-token', [NotificationController::class, 'storeToken']);
 
     Route::middleware('check.role:admin,cashier')->group(function () {
 

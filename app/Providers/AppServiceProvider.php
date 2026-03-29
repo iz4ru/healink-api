@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\ProductBatch;
+use App\Models\Transaction;
+use App\Observers\ProductBatchObserver;
+use App\Observers\TransactionObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        ProductBatch::observe(ProductBatchObserver::class);
+        Transaction::observe(TransactionObserver::class);
     }
 }
