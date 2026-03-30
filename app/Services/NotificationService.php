@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Factory;
 use Kreait\Firebase\Messaging\CloudMessage;
 
@@ -21,7 +22,30 @@ class NotificationService
             'is_read' => false,
         ]);
 
-        $factory = (new Factory)->withServiceAccount(json_decode(env('FIREBASE_CREDENTIALS'), true));
+        $rawCredentials = config('services.firebase.credentials');
+
+        if (empty($rawCredentials)) {
+            Log::error("Firebase Credentials kosong di .env atau config!");
+            return;
+        }
+
+        $credentials = $rawCredentials;
+
+        if (is_string($credentials) && str_starts_with(trim($credentials), '{')) {
+            $credentials = json_decode($credentials, true);
+        }
+        else {
+            // Hanya panggil base_path kalau isinya bukan JSON
+            $credentials = base_path($credentials);
+
+            // Cek apakah file beneran ada
+            if (!is_file($credentials)) {
+                Log::error("File Firebase tidak ditemukan di: " . $credentials);
+                return;
+            }
+        }
+
+        $factory = (new Factory)->withServiceAccount($credentials);
         $messaging = $factory->createMessaging();
 
         $tokens = $user->fcmTokens()->pluck('token')->toArray();
@@ -34,7 +58,7 @@ class NotificationService
                     'body' => $body,
                 ],
                 'android' => [
-                    'priority' => 'high', 
+                    'priority' => 'high',
                     'notification' => [
                         'channel_id' => 'high_importance_channel',
                         'icon' => 'notification_icon',

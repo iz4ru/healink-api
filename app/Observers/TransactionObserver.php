@@ -22,7 +22,7 @@ class TransactionObserver
         $voidReason  = $transaction->void_reason ?? '-';
         $totalAmount = number_format($transaction->total_amount, 0, ',', '.');
 
-        $title = '[🧾] ❌ Transaksi Dibatalkan';
+        $title = '❌ Transaksi Dibatalkan';
         $body  = "{$transaction->trx_no} • Rp{$totalAmount} • {$cancelledBy}: {$voidReason}";
 
         // Kirim ke semua Owner yang aktif

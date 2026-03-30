@@ -106,7 +106,7 @@ class CheckExpiredBatches extends Command
             // Sudah kadaluarsa
             return [
                 'batch_expired',
-                '[📦] 🚨 Produk Sudah Kadaluarsa!',
+                '🚨 Produk Sudah Kadaluarsa!',
                 "Produk $productName " . " (Batch: $batchNumber) " . " telah melewati tanggal expired pada $formattedDate. Segera tarik dari display!",
             ];
         }
@@ -115,7 +115,7 @@ class CheckExpiredBatches extends Command
             // Kadaluarsa hari ini
             return [
                 'batch_expired',
-                '[📦] ❗ Produk Kadaluarsa Hari Ini!',
+                '🚨 Produk Kadaluarsa Hari Ini!',
                 "Produk $productName (Batch: $batchNumber) kadaluarsa hari ini ($formattedDate). Segera tarik dari display!",
             ];
         }
@@ -124,7 +124,7 @@ class CheckExpiredBatches extends Command
             // Kadaluarsa besok
             return [
                 'batch_expiring_tomorrow',
-                '[📦] ⚠️ Produk Kadaluarsa Besok!',
+                '⚠️ Produk Kadaluarsa Besok!',
                 "Produk $productName (Batch: $batchNumber) kadaluarsa besok ($formattedDate). Pertimbangkan untuk segera menjualnya.",
             ];
         }
@@ -133,7 +133,7 @@ class CheckExpiredBatches extends Command
             // H-7
             return [
                 'batch_expiring_soon_7',
-                '[📦] 🕒 Peringatan Kadaluarsa 7 Hari',
+                '⚠️ Peringatan Kadaluarsa 7 Hari',
                 "Produk $productName (Batch: $batchNumber) akan kadaluarsa pada $formattedDate ($daysLeft hari lagi). Segera tindak lanjuti.",
             ];
         }
@@ -141,7 +141,7 @@ class CheckExpiredBatches extends Command
         // H-30
         return [
             'batch_expiring_soon_30',
-            '[📦] 🕒 Peringatan Kadaluarsa 30 Hari',
+            '📦 Peringatan Kadaluarsa 30 Hari',
             "Produk $productName (Batch: $batchNumber) akan kadaluarsa pada $formattedDate ($daysLeft hari lagi).",
         ];
     }

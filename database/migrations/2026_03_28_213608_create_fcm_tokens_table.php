@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('fcm_tokens', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('token')->unique();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('device_id');
+            $table->string('token');
             $table->string('device_info')->nullable();
             $table->timestamps();
+
+            $table->unique(['user_id', 'device_id']);
         });
     }
 

@@ -48,14 +48,14 @@ class ProductBatchObserver
                 $this->notifyStockToAdmins(
                     $product, 
                     $productBatch, 
-                    "[📦] ⚠️ Stok Mencapai Batas Minimum!", 
+                    "⚠️ Stok Mencapai Batas Minimum!", 
                     "tersisa {$newStock} unit lagi"
                 );
             } else if ($oldStock > 0 && $newStock == 0) {
                 $this->notifyStockToAdmins(
                     $product, 
                     $productBatch, 
-                    "[📦] ❗ Stok Habis!", 
+                    "🚨 Stok Habis!", 
                     "sudah kosong"
                 );
             }

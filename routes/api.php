@@ -53,15 +53,15 @@ Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
         Route::get('/profile/logs', [UserController::class, 'myLogs']);
 
     });
-    
+
     Route::middleware('check.role:cashier')->group(function () {
 
         Route::post('/transactions', [TransactionController::class, 'store']);
 
     });
-        
+
     Route::middleware('check.role:admin')->group(function () {
-            
+
         # Products
         Route::put('/products/{id}', [ProductController::class, 'update'])->whereNumber('id');
         Route::delete('/products/{id}', [ProductController::class, 'destroy'])->whereNumber('id');
@@ -88,5 +88,5 @@ Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
         Route::post('/transactions/{id}/cancel', [TransactionController::class, 'cancel'])->whereNumber('id');
 
     });
-    
+
 });

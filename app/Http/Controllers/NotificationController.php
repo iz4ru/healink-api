@@ -12,14 +12,20 @@ class NotificationController extends Controller
     {
         $request->validate([
             'token' => 'required|string',
+            'device_id' => 'required|string',
             'device_info' => 'nullable|string'
         ]);
 
         $currentUser = Auth::user();
 
         $currentUser->fcmTokens()->updateOrCreate(
-            ['token' => $request->token],
-            ['device_info' => $request->device_info]
+            [
+                'device_id' => $request->device_id,
+            ],
+            [
+                'token' => $request->token,
+                'device_info' => $request->device_info,
+            ]
         );
 
         return response()->json([
@@ -135,9 +141,9 @@ class NotificationController extends Controller
     public function checkUnread(Request $request)
     {
         $hasUnread = $request->user()->notifications()->where('is_read', false)->exists();
-        
+
         return response()->json([
-            'status' => 'success', 
+            'status' => 'success',
             'has_unread' => $hasUnread
         ]);
     }

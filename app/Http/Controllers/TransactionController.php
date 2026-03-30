@@ -23,7 +23,7 @@ class TransactionController extends Controller
     {
         $user = Auth::user();
 
-        $query = Transaction::with('user'); 
+        $query = Transaction::with('user');
 
         if ($user->role === 'cashier') {
             $query->where('user_id', $user->id);
@@ -47,8 +47,8 @@ class TransactionController extends Controller
 
         if ($request->filled('search')) {
             // Ubah ketikan user dari Flutter menjadi huruf kecil semua
-            $search = strtolower($request->search); 
-            
+            $search = strtolower($request->search);
+
             $query->where(function($q) use ($search) {
                 // Gunakan LOWER() SQL untuk menyamakan format kolom database
                 $q->whereRaw('LOWER(trx_no) LIKE ?', ["%{$search}%"])
@@ -61,10 +61,10 @@ class TransactionController extends Controller
             case 'oldest':
                 $query->orderBy('transaction_date', 'asc');
                 break;
-            case 'highest': 
+            case 'highest':
                 $query->orderBy('total_amount', 'desc');
                 break;
-            case 'lowest': 
+            case 'lowest':
                 $query->orderBy('total_amount', 'asc');
                 break;
             case 'newest':
@@ -79,10 +79,10 @@ class TransactionController extends Controller
             return [
                 'id' => $trx->id,
                 'trx_no' => $trx->trx_no,
-                'date' => Carbon::parse($trx->transaction_date)->toIso8601String(), 
-                'cashier' => $trx->user ? $trx->user->name : 'Umum', 
-                'cashier_username' => $trx->user ? $trx->user->username : 'kasir', 
-                'total' => $trx->total_amount, 
+                'date' => Carbon::parse($trx->transaction_date)->toIso8601String(),
+                'cashier' => $trx->user ? $trx->user->name : 'Umum',
+                'cashier_username' => $trx->user ? $trx->user->username : 'kasir',
+                'total' => $trx->total_amount,
                 'status' => $trx->status,
             ];
         });
@@ -109,7 +109,7 @@ class TransactionController extends Controller
 
     public function export(Request $request)
     {
-        $query = Transaction::with('user'); 
+        $query = Transaction::with('user');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('transaction_date', [
@@ -124,8 +124,8 @@ class TransactionController extends Controller
 
         if ($request->filled('search')) {
             // Ubah ketikan user dari Flutter menjadi huruf kecil semua
-            $search = strtolower($request->search); 
-            
+            $search = strtolower($request->search);
+
             $query->where(function($q) use ($search) {
                 // Gunakan LOWER() SQL untuk menyamakan format kolom database
                 $q->whereRaw('LOWER(trx_no) LIKE ?', ["%{$search}%"])
@@ -142,7 +142,7 @@ class TransactionController extends Controller
         if ($request->format === 'excel') {
             // Kita oper $query, $request->start_date, dan $request->end_date ke dalam Export Class
             return Excel::download(
-                new TransactionsExport($query, $request->start_date, $request->end_date), 
+                new TransactionsExport($query, $request->start_date, $request->end_date),
                 'Laporan_Transaksi_Healink.xlsx'
             );
         }
@@ -167,7 +167,7 @@ class TransactionController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.batch_id'   => 'required|exists:product_batches,id',
             'items.*.qty'        => 'required|integer|min:1',
-        ], 
+        ],
         [
             'paid_amount.required'        => 'Nominal uang yang dibayarkan harus diisi.',
             'paid_amount.numeric'         => 'Nominal uang harus berupa angka.',
@@ -222,10 +222,10 @@ class TransactionController extends Controller
 
             $transaction = Transaction::create([
                 'trx_no'           => $trxNo,
-                'user_id'          => $user->id, 
+                'user_id'          => $user->id,
                 'customer_name'    => $request->customer_name,
                 'subtotal'         => $subtotal,
-                'total_amount'     => $subtotal, 
+                'total_amount'     => $subtotal,
                 'paid_amount'      => $request->paid_amount,
                 'change_amount'    => $changeAmount,
                 'transaction_date' => now(),
@@ -236,9 +236,10 @@ class TransactionController extends Controller
             foreach ($itemsToInsert as $itemData) {
                 $transaction->items()->create($itemData);
 
-                ProductBatch::where('id', $itemData['batch_id'])->decrement('stock', $itemData['qty']);
+                $batch = ProductBatch::findOrFail($itemData['batch_id']);
+                $batch->decrement('stock', $itemData['qty']);
             }
-            
+
             DB::commit();
 
             Log::create([
@@ -250,7 +251,7 @@ class TransactionController extends Controller
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Transaksi berhasil diproses!',
-                'data'    => $transaction->load('items'), 
+                'data'    => $transaction->load('items'),
             ], 201);
 
         } catch (\Exception $e) {
@@ -258,8 +259,8 @@ class TransactionController extends Controller
 
             return response()->json([
                 'status'  => 'error',
-                'message' => $e->getMessage() 
-            ], 422); 
+                'message' => $e->getMessage()
+            ], 422);
         }
     }
 
@@ -291,7 +292,7 @@ class TransactionController extends Controller
                 'change_amount'    => $transaction->change_amount,
                 'status'           => $transaction->status,
                 'void_reason'      => $transaction->void_reason,
-                
+
                 'items'            => $transaction->items->map(function ($item) {
                     return [
                         'id'           => $item->id,
@@ -349,7 +350,7 @@ class TransactionController extends Controller
 
             if ($transaction->status === 'void') {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'Transaksi yang dibatalkan tidak dapat diubah.'
                 ], 400);
             }
@@ -368,7 +369,7 @@ class TransactionController extends Controller
             DB::commit();
 
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => 'Detail transaksi berhasil diperbarui.'
             ], 200);
 
@@ -376,7 +377,7 @@ class TransactionController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
@@ -402,19 +403,21 @@ class TransactionController extends Controller
 
             if ($transaction->status === 'void') {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'Transaksi ini sudah dibatalkan sebelumnya.'
                 ], 400);
             }
 
             $transaction->status = 'void';
 
-            $transaction->void_reason = $data['void_reason']; 
+            $transaction->void_reason = $data['void_reason'];
             $transaction->save();
 
             foreach ($transaction->items as $item) {
                 if ($item->batch_id) {
-                    ProductBatch::where('id', $item->batch_id)->increment('stock', $item->qty);
+
+                    $batch = ProductBatch::findOrFail($item->batch_id);
+                    $batch->increment('stock', $item->qty);
                 }
             }
 
@@ -427,14 +430,14 @@ class TransactionController extends Controller
             DB::commit();
 
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => 'Transaksi berhasil dibatalkan dan stok telah dikembalikan ke batch masing-masing.'
             ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Gagal membatalkan transaksi: ' . $e->getMessage()
             ], 500);
         }

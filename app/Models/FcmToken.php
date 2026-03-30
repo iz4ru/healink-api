@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FcmToken extends Model
 {
     protected $fillable = [
-        'user_id', 
-        'token', 
+        'user_id',
+        'device_id',
+        'token',
         'device_info'
     ];
 

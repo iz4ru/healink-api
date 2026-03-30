@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FcmToken;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -57,11 +59,21 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $user = $request->user();
+
         $bearerToken = $request->bearerToken(); // "1|abc123"
         $tokenId = explode('|', $bearerToken, 2)[0]; // "1"
-        
-        $request->user()->tokens()->where('id', $tokenId)->delete();
-            
+
+        $deviceId = $request->header('X-Device-ID');
+
+        if ($deviceId) {
+            FcmToken::where('user_id', $user->id)
+                ->where('device_id', $deviceId)
+                ->delete();
+        }
+
+        $user->tokens()->where('id', $tokenId)->delete();
+
         return response()->json([
             'message' => 'Logout berhasil.',
         ], 200);
