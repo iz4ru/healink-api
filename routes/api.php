@@ -33,18 +33,23 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
 
     Route::get('/products/stock-alerts', [ProductController::class, 'getStockAlerts']);
 
-    Route::middleware('check.role:admin,cashier')->group(function () {
+    Route::middleware('check.role:owner,admin,cashier')->group(function () {
 
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'show'])->whereNumber('id');
         Route::get('/products/{id}/best-batch', [ProductBatchController::class, 'getBestBatch'])->whereNumber('id');
-        Route::put('/batches/{id}', [ProductBatchController::class, 'update'])->whereNumber('id');
-        Route::delete('/batches/{id}', [ProductBatchController::class, 'destroy'])->whereNumber('id');
         Route::get('/transactions', [TransactionController::class, 'index']);
         Route::get('/transactions/{id}', [TransactionController::class, 'show'])->whereNumber('id');
-        Route::post('/transactions/{id}/cancel', [TransactionController::class, 'cancel'])->whereNumber('id');
         Route::get('/units', [ProductController::class, 'indexUnit']);
         Route::get('/categories', [ProductController::class, 'indexCategory']);
+
+    });
+
+    Route::middleware('check.role:admin,cashier')->group(function () {
+
+        Route::post('/transactions/{id}/cancel', [TransactionController::class, 'cancel'])->whereNumber('id');
+        Route::put('/batches/{id}', [ProductBatchController::class, 'update'])->whereNumber('id');
+        Route::delete('/batches/{id}', [ProductBatchController::class, 'destroy'])->whereNumber('id');
 
     });
 
@@ -103,6 +108,12 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
         Route::get('/cashiers', [TransactionController::class, 'indexCashier']);
         Route::get('/transactions/export', [TransactionController::class, 'export']);
         Route::put('/transactions/{id}', [TransactionController::class, 'update'])->whereNumber('id');
+
+    });
+
+    Route::middleware('check.role:owner')->group(function () {
+
+        Route::get('/owner/dashboard', [DashboardController::class, 'indexOwner']);
 
     });
 
