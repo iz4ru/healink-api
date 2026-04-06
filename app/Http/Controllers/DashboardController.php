@@ -215,7 +215,7 @@ class DashboardController extends Controller
         $onlineUsers = User::whereIn('role', ['admin', 'cashier'])
             ->where('is_active', true)
             ->where('last_seen', '>=', $onlineThreshold)
-            ->get(['id', 'name', 'last_seen']);
+            ->get(['id', 'name', 'role', 'last_seen']);
 
         // ─── RETURN UNIFIED RESPONSE ───
         return response()->json([
