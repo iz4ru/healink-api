@@ -63,6 +63,10 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
         Route::put('/users/{id}/status', [UserController::class, 'updateStatus'])->whereNumber('id');
         Route::get('/users/{id}/logs', [UserController::class, 'logs'])->whereNumber('id');
 
+        Route::get('/cashiers', [TransactionController::class, 'indexCashier']);
+
+        Route::get('/transactions/export', [TransactionController::class, 'export']);
+
         Route::put('/profile/update', [UserController::class, 'updateProfile']);
         Route::get('/profile/logs', [UserController::class, 'myLogs']);
 
@@ -105,8 +109,6 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
         Route::delete('/batches/{id}', [ProductBatchController::class, 'destroy'])->whereNumber('id');
 
         # Transaksi
-        Route::get('/cashiers', [TransactionController::class, 'indexCashier']);
-        Route::get('/transactions/export', [TransactionController::class, 'export']);
         Route::put('/transactions/{id}', [TransactionController::class, 'update'])->whereNumber('id');
 
     });

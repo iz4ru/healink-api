@@ -78,7 +78,7 @@ class SendDailySalesReport extends Command
         }
 
         // Kirim ke semua Owner aktif
-        $owners = User::whereIn('role', ['admin', 'owner'])
+        $owners = User::where('role', 'owner')
             ->where('is_active', true)
             ->get();
 

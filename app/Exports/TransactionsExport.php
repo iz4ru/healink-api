@@ -23,121 +23,184 @@ class TransactionsExport implements FromQuery, WithMapping, WithHeadings, WithSt
     protected $dateRange;
     protected $grandTotal;
 
-    // 1. Menerima query dan parameter tanggal dari Controller
     public function __construct($query, $startDate, $endDate)
     {
         $this->query = $query;
-        
-        // Buat string rentang tanggal
+
         $start = $startDate ? Carbon::parse($startDate)->format('d/m/Y') : 'Awal';
         $end = $endDate ? Carbon::parse($endDate)->format('d/m/Y') : 'Sekarang';
         $this->dateRange = $start . ' - ' . $end;
 
-        // Hitung Grand Total HANYA untuk transaksi yang tidak batal
-        // Kita wajib pakai (clone) agar query asli untuk data tabel tidak rusak
         $this->grandTotal = (clone $query)
             ->where(function($q) {
                 $q->whereNull('status')
-                  ->orWhereNotIn('status', ['canceled', 'void']); // Sesuaikan dengan nama status batal di DB-mu
+                  ->orWhereNotIn('status', ['canceled', 'void']);
             })
             ->sum('total_amount');
     }
 
-    // 2. Eksekusi query (Otomatis di-chunk oleh package)
     public function query()
     {
         return $this->query->orderBy('transaction_date', 'desc');
     }
 
-    // 3. Meracik Header Laporan (Multi-baris)
     public function headings(): array
     {
         return [
-            ['LAPORAN PENJUALAN HEALINK'],
-            ['Rentang Tanggal: ' . $this->dateRange],
+            ['HEALINK'],
+            ['Laporan Riwayat Penjualan | Rentang Tanggal: ' . $this->dateRange],
             ['Dicetak pada: ' . Carbon::now()->locale('id')->timezone('Asia/Jakarta')->translatedFormat('d F Y, H:i')],
-            [''], // Baris kosong sebagai jarak
+            [''],
             [
                 'No. Transaksi',
                 'Tanggal',
                 'Nama Kasir',
                 'Pelanggan',
                 'Subtotal (Rp)',
+                'HPP (Rp)',
+                'Laba Kotor (Rp)',
+                'Margin (%)',
                 'Status',
                 'Catatan'
             ]
         ];
     }
 
-    // 4. Mapping Data per Baris
     public function map($trx): array
     {
-        $status = ($trx->status === 'canceled' || $trx->status === 'void') ? 'Batal' : 'Sukses';
-        
+        $isSuccess = !in_array($trx->status, ['canceled', 'void']);
+        $status = $isSuccess ? 'Sukses' : 'Batal';
+
+        $subtotal = $trx->total_amount;
+        $cogs = 0;
+
+        if ($isSuccess) {
+            foreach ($trx->items as $item) {
+                $buyPrice = 0;
+
+                if ($item->batch) {
+                    $buyPrice = $item->batch->buy_price ?? 0;
+                } elseif ($item->product && $item->product->batches->isNotEmpty()) {
+                    $buyPrice = $item->product->batches->first()?->buy_price ?? 0;
+                }
+
+                $cogs += $buyPrice * $item->qty;
+            }
+        }
+
+        $profit = $isSuccess ? ($subtotal - $cogs) : 0;
+        $margin = $isSuccess && $subtotal > 0
+            ? round(($profit / $subtotal) * 100)
+            : null;
+
         return [
             $trx->trx_no,
             Carbon::parse($trx->transaction_date)->format('d/m/Y H:i'),
             $trx->user ? $trx->user->name : 'Umum',
             $trx->customer_name ?? '-',
-            $trx->total_amount, // Biarkan berupa angka mentah agar format kolom Excel bekerja
+            $subtotal,
+            $cogs,
+            $profit,
+            $margin,
             $status,
             $trx->note ?? '-'
         ];
     }
 
-    // 5. Format Kolom Excel (Agar Subtotal otomatis pakai pemisah ribuan)
     public function columnFormats(): array
     {
         return [
-            // Kolom E adalah kolom 'Subtotal (Rp)'
-            'E' => '#,##0', 
+            'E' => '#,##0',
+            'F' => '#,##0',
+            'G' => '#,##0',
+            'H' => '0"%"',
         ];
     }
 
-    // 6. Styling Dasar
     public function styles(Worksheet $sheet)
     {
         return [
-            // Judul Laporan
             1 => ['font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '3A7CF0']]],
             2 => ['font' => ['italic' => true, 'color' => ['rgb' => '7C8895']]],
             3 => ['font' => ['italic' => true, 'size' => 10, 'color' => ['rgb' => '7C8895']]],
-            
-            // Header Tabel (Berada di baris ke-5 karena ada 4 baris header di atasnya)
+
             5 => [
-                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']], 
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                 'fill' => ['fillType' => 'solid', 'color' => ['rgb' => '3A7CF0']]
             ],
         ];
     }
 
-    // 7. Event Listener (Untuk Inject Baris Grand Total di Bawah & Merge Cell Judul)
     public function registerEvents(): array
     {
         return [
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet;
-                
-                // Merge cell untuk 3 baris judul di atas
-                $sheet->mergeCells('A1:G1');
-                $sheet->mergeCells('A2:G2');
-                $sheet->mergeCells('A3:G3');
 
-                // Cari baris terakhir yang ada datanya
+                $sheet->mergeCells('A1:J1');
+                $sheet->mergeCells('A2:J2');
+                $sheet->mergeCells('A3:J3');
+
+                $grandTotalRevenue = 0;
+                $grandTotalCogs = 0;
+
+                $transactions = (clone $this->query)
+                    ->where(function($q) {
+                        $q->whereNull('status')
+                        ->orWhereNotIn('status', ['canceled', 'void']);
+                    })
+                    ->with(['items' => function($q) {
+                        $q->with([
+                            'batch' => fn($b) => $b->withTrashed(),
+                            'product.batches' => fn($b) => $b->withTrashed()->orderBy('exp_date', 'asc')->limit(1)
+                        ]);
+                    }])
+                    ->get();
+
+                foreach ($transactions as $trx) {
+                    $isSuccess = !in_array($trx->status, ['canceled', 'void']);
+                    $subtotal = $trx->total_amount;
+                    $cogs = 0;
+
+                    if ($isSuccess) {
+                        foreach ($trx->items as $item) {
+                            $buyPrice = 0;
+
+                            if ($item->batch) {
+                                $buyPrice = $item->batch->buy_price ?? 0;
+                            } elseif ($item->product && $item->product->batches->isNotEmpty()) {
+                                $buyPrice = $item->product->batches->first()?->buy_price ?? 0;
+                            }
+
+                            $cogs += $buyPrice * $item->qty;
+                        }
+                        $grandTotalRevenue += $subtotal;
+                        $grandTotalCogs += $cogs;
+                    }
+                }
+
+                $grandProfit = $grandTotalRevenue - $grandTotalCogs;
+                $grandMargin = $grandTotalRevenue > 0
+                    ? round(($grandProfit / $grandTotalRevenue) * 100)
+                    : null;
+
                 $highestRow = $sheet->getHighestRow();
-                
-                // Siapkan baris baru untuk Grand Total (Baris terakhir + 1)
+
                 $totalRow = $highestRow + 1;
-
-                // Tulis teks Grand Total
-                $sheet->setCellValue('A' . $totalRow, 'TOTAL PENDAPATAN BERSIH (Sukses)');
-                $sheet->mergeCells('A' . $totalRow . ':D' . $totalRow); // Gabungkan kolom A sampai D
-                
-                // Masukkan angka Grand Total di kolom E
+                $sheet->setCellValue('A' . $totalRow, 'TOTAL PENJUALAN (SUKSES)');
+                $sheet->mergeCells('A' . $totalRow . ':D' . $totalRow);
                 $sheet->setCellValue('E' . $totalRow, $this->grandTotal);
+                $sheet->setCellValue('F' . $totalRow, $grandTotalCogs);
+                $sheet->setCellValue('G' . $totalRow, $grandTotalRevenue);
+                $sheet->setCellValue('H' . $totalRow, '-');
 
-                // Percantik baris Grand Total
-                $sheet->getStyle('A' . $totalRow . ':G' . $totalRow)->applyFromArray([
+                $profitRow = $totalRow + 1;
+                $sheet->setCellValue('A' . $profitRow, 'TOTAL LABA KOTOR');
+                $sheet->mergeCells('A' . $profitRow . ':D' . $profitRow);
+                $sheet->setCellValue('G' . $profitRow, $grandProfit);
+                $sheet->setCellValue('H' . $profitRow, $grandMargin . '%');
+
+                $sheet->getStyle('A' . $totalRow . ':J'     . $totalRow)->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => '3A7CF0']
@@ -145,14 +208,39 @@ class TransactionsExport implements FromQuery, WithMapping, WithHeadings, WithSt
                     'fill' => [
                         'fillType' => 'solid',
                         'color' => ['rgb' => 'EAF2FF']
+                    ],
+                ]);
+
+                $sheet->getStyle('A' . $profitRow . ':J' . $profitRow)->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'color' => ['rgb' => '2E7D32']
+                    ],
+                    'fill' => [
+                        'fillType' => 'solid',
+                        'color' => ['rgb' => 'E8F5E9']
+                    ],
+                ]);
+
+                $sheet->getStyle('A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle('A' . $profitRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+                $sheet->getStyle('A' . $totalRow . ':J' . $profitRow)->applyFromArray([
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => 'thin',
+                            'color' => ['rgb' => 'DDDDDD']
+                        ]
                     ]
                 ]);
 
-                // Rata Kanan untuk tulisan Grand Total
-                $sheet->getStyle('A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                
-                // Set format ribuan untuk angka Grand Total
-                $sheet->getStyle('E' . $totalRow)->getNumberFormat()->setFormatCode('#,##0');
+                $sheet->getStyle('E' . $totalRow . ':H' . $profitRow)
+                    ->getAlignment()
+                    ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                $sheet->getStyle('E' . $totalRow . ':H' . $profitRow)
+                    ->getNumberFormat()
+                    ->setFormatCode('#,##0');
             },
         ];
     }

@@ -67,6 +67,12 @@ class TransactionController extends Controller
             case 'lowest':
                 $query->orderBy('total_amount', 'asc');
                 break;
+            case 'success':
+                $query->where('status', 'sale')->orderBy('transaction_date', 'desc');
+                break;
+            case 'failed':
+                $query->where('status', 'void')->orderBy('transaction_date', 'desc');
+                break;
             case 'newest':
             default:
                 $query->orderBy('transaction_date', 'desc');
@@ -109,7 +115,17 @@ class TransactionController extends Controller
 
     public function export(Request $request)
     {
-        $query = Transaction::with('user');
+        $query = Transaction::with([
+            'user',
+            'items' => function($q) {
+                $q->with([
+                    'batch' => fn($b) => $b->withTrashed(),
+                    'product' => fn($p) => $p->with([
+                        'batches' => fn($b) => $b->withTrashed()->orderBy('exp_date', 'asc')->limit(1)
+                    ])->select('id', 'product_name')
+                ]);
+            }
+        ]);
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $query->whereBetween('transaction_date', [
@@ -138,6 +154,31 @@ class TransactionController extends Controller
             $query->whereIn('user_id', $cashierIds);
         }
 
+        $sort = $request->sort ?? 'newest';
+        switch ($sort) {
+            case 'success':
+                $query->where('status', 'sale');
+                break;
+            case 'failed':
+                $query->where('status', 'void');
+                break;
+        }
+
+        // ─── ORDER BY ───
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('transaction_date', 'asc');
+                break;
+            case 'highest':
+                $query->orderBy('total_amount', 'desc');
+                break;
+            case 'lowest':
+                $query->orderBy('total_amount', 'asc');
+                break;
+            default:
+                $query->orderBy('transaction_date', 'desc');
+        }
+
         // --- PERCABANGAN FORMAT (EXCEL ATAU PDF) ---
         if ($request->format === 'excel') {
             // Kita oper $query, $request->start_date, dan $request->end_date ke dalam Export Class
@@ -148,10 +189,10 @@ class TransactionController extends Controller
         }
 
         if ($request->format === 'pdf') {
-            // Tarik data menggunakan get() HANYA untuk PDF
             $transactions = $query->orderBy('transaction_date', 'desc')->get();
+
             $pdf = Pdf::loadView('exports.transactions', compact('transactions'));
-            return $pdf->download('Laporan_Transaksi.pdf');
+            return $pdf->download('Laporan_Transaksi.Healink.pdf');
         }
 
         return response()->json(['message' => 'Format tidak didukung'], 400);
@@ -232,7 +273,7 @@ class TransactionController extends Controller
             }
 
             $changeAmount = $request->paid_amount - $subtotal;
-            $trxNo = 'TRX-' . now()->format('ymd') . '-' . strtoupper(Str::random(6));
+            $trxNo = 'HLK-' . now()->format('ymd') . '-' . strtoupper(Str::random(6));
 
             $transaction = Transaction::create([
                 'trx_no'           => $trxNo,

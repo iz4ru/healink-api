@@ -20,7 +20,7 @@ class DashboardController extends Controller
         Carbon::setLocale('id');
 
         $now = Carbon::now()->setTimezone($tz);
-        $onlineThreshold = $now->copy()->subMinutes(1);
+        $onlineThreshold = $now->copy()->subMinutes(2);
 
         // ─── 1. TODAY'S STATS ───
         $todayStart = Carbon::now()->setTimezone($tz)->startOfDay();
@@ -137,7 +137,7 @@ class DashboardController extends Controller
         Carbon::setLocale('id');
 
         $now = Carbon::now()->setTimezone($tz);
-        $onlineThreshold = $now->copy()->subMinutes(1);
+        $onlineThreshold = $now->copy()->subMinutes(2);
 
         // ─── 1. TODAY'S STATS ───
         $todayStart = Carbon::now()->setTimezone($tz)->startOfDay();
