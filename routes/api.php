@@ -37,7 +37,6 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
 
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'show'])->whereNumber('id');
-        Route::get('/products/{id}/best-batch', [ProductBatchController::class, 'getBestBatch'])->whereNumber('id');
         Route::get('/transactions', [TransactionController::class, 'index']);
         Route::get('/transactions/{id}', [TransactionController::class, 'show'])->whereNumber('id');
         Route::get('/units', [ProductController::class, 'indexUnit']);
@@ -79,6 +78,7 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
         Route::post('/transactions', [TransactionController::class, 'store']);
 
         Route::post('/products/validate-cart', [ProductController::class, 'validateCart']);
+        Route::get('/products/{id}/best-batch', [ProductBatchController::class, 'getBestBatch'])->whereNumber('id');
 
     });
 

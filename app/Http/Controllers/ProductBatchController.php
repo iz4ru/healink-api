@@ -67,7 +67,7 @@ class ProductBatchController extends Controller
 
             ->where(function ($query) {
                 $query->whereNull('exp_date')
-                    ->orWhere('exp_date', '>=', now()->startOfDay());
+                    ->orWhereDate('exp_date', '>', now()->format('Y-m-d'));
             })
 
             ->orderByRaw('exp_date IS NULL, exp_date ASC')
@@ -98,13 +98,6 @@ class ProductBatchController extends Controller
     {
         $user = Auth::user();
         $batch = ProductBatch::with('product')->findOrFail($id);
-
-        if ($batch->transactionItems()->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Batch tidak dapat dihapus karena sudah memiliki riwayat transaksi.'
-            ], 400);
-        }
 
         $batchNumber = $batch->batch_number;
         $productName = $batch->product->product_name;
