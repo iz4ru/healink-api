@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProductBatchController;
 use App\Http\Controllers\ProductController;
@@ -14,6 +15,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login']);
+
+    Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
+
+    Route::get('/check-first-owner', [UserController::class, 'checkFirstOwner']);
+
+    Route::post('/register-first-user', [UserController::class, 'registerFirstUser']);
 
 });
 

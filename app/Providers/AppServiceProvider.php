@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Observers\ProductBatchObserver;
 use App\Observers\ProductObserver;
 use App\Observers\TransactionObserver;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,5 +29,9 @@ class AppServiceProvider extends ServiceProvider
         ProductBatch::observe(ProductBatchObserver::class);
         Transaction::observe(TransactionObserver::class);
         Product::observe(ProductObserver::class);
+
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
+            return config('app.url') . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+        });
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Log;
 use App\Models\User;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +21,8 @@ class UserController extends Controller
             $query = User::query();
 
             if ($currentUser->role === 'admin') {
-                // Admin hanya boleh melihat kasir
                 $query->where('role', 'cashier');
             } elseif ($currentUser->role === 'owner') {
-                // Owner boleh melihat semua pengguna, kecuali dirinya sendiri
                 $query->where('id', '!=', $currentUser->id);
             } else {
                 return response()->json([
@@ -32,7 +31,6 @@ class UserController extends Controller
                 ], 403);
             }
 
-            // FITUR SEARCH
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
@@ -41,7 +39,6 @@ class UserController extends Controller
                 });
             }
 
-            // FITUR SORT
             $sort = $request->query('sort', 'az');
             switch ($sort) {
                 case 'za':
@@ -83,6 +80,80 @@ class UserController extends Controller
         }
     }
 
+    public function checkFirstOwner()
+    {
+        try {
+            $ownerExists = User::where('role', 'owner')->exists();
+            
+            return response()->json([
+                'success' => true,
+                'owner_exists' => $ownerExists,
+            ], 200);
+            
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memeriksa status owner: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function registerFirstUser(Request $request)
+    {
+        if (User::where('role', 'owner')->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Registrasi awal sudah dilakukan.'
+            ], 403);
+        }
+
+        $data = $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|string|email|max:255|unique:users',
+            'phone'    => 'nullable|string|max:20',
+            'username' => 'required|string|max:255|unique:users',
+            'password' => 'required|string|min:8',
+        ], [
+            'name.required'     => 'Nama pengguna wajib diisi.',
+            'email.required'    => 'Email pengguna wajib diisi.',
+            'email.unique'      => 'Email sudah terdaftar.',
+            'email.email'       => 'Email yang dimasukkan tidak valid.',
+            'username.required' => 'Username wajib diisi.',
+            'username.unique'   => 'Username ini sudah terpakai.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min'      => 'Password minimal harus 8 karakter.',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'name'      => $data['name'],
+                'email'     => $data['email'],
+                'phone'     => $data['phone'] ?? null,
+                'username'  => $data['username'],
+                'password'  => Hash::make($data['password']),
+                'role'      => 'owner',
+                'is_active' => true,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Owner pertama berhasil dibuat.',
+                'data'    => $user
+            ], 201);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         $currentUser = Auth::user();
@@ -91,13 +162,12 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
         }
 
-        // 1 & 2. Validasi dimasukkan ke variabel $data dengan pesan kustom
         $rules = [
             'name'     => 'required|string|max:255',
             'email'    => 'required|string|email|max:255|unique:users',
             'phone'    => 'nullable|string|max:20',
             'username' => 'required|string|max:255|unique:users',
-            'password' => 'required|string|min:6',
+            'password' => 'required|string|min:8',
         ];
 
         if ($currentUser->role === 'owner') {
@@ -112,7 +182,7 @@ class UserController extends Controller
             'username.required' => 'Username wajib diisi.',
             'username.unique'   => 'Username ini sudah terpakai.',
             'password.required' => 'Password wajib diisi.',
-            'password.min'      => 'Password minimal harus 6 karakter.',
+            'password.min'      => 'Password minimal harus 8 karakter.',
         ]);
 
         $roleToAssign = $currentUser->role === 'owner' ? ($data['role'] ?? 'cashier') : 'cashier';
@@ -128,7 +198,6 @@ class UserController extends Controller
             }
         }
 
-        // 3. Mulai Transaksi Database
         DB::beginTransaction();
         try {
             $newUser = User::create([
@@ -141,14 +210,13 @@ class UserController extends Controller
                 'is_active' => true,
             ]);
 
-            // 4. Catat Log Aktivitas (Snapshot)
             Log::create([
                 'user_id'  => $currentUser->id,
                 'activity' => 'Tambah pengguna',
                 'detail'   => $currentUser->name . ' menambahkan pengguna baru bernama ' . $newUser->name . ' dengan peran ' . $newUser->role,
             ]);
 
-            DB::commit(); // Simpan permanen ke database
+            DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -156,8 +224,8 @@ class UserController extends Controller
                 'data'    => $newUser
             ], 201);
 
-        } catch (\Exception $e) {
-            DB::rollBack(); // Batalkan semua aksi di atas jika error
+        } catch (Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan data: ' . $e->getMessage()
@@ -184,7 +252,8 @@ class UserController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'username' => ['required', 'string', Rule::unique('users')->ignore($user->id)],
-            'password' => 'nullable|string|min:6',
+            'phone'    => 'nullable|string|max:20',
+            'password' => 'nullable|string|min:8',
         ], [
             'name.required'     => 'Nama pengguna wajib diisi.',
             'email.required'    => 'Email wajib diisi.',
@@ -192,7 +261,7 @@ class UserController extends Controller
             'email.email'       => 'Email yang dimasukkan tidak valid.',
             'username.required' => 'Username wajib diisi.',
             'username.unique'   => 'Username ini sudah dipakai oleh akun lain.',
-            'password.min'      => 'Password minimal 6 karakter.',
+            'password.min'      => 'Password minimal 8 karakter.',
         ]);
 
         DB::beginTransaction();
@@ -201,6 +270,7 @@ class UserController extends Controller
 
             $user->name = $data['name'];
             $user->email = $data['email'];
+            $user->phone = $data['phone'];
             $user->username = $data['username'];
 
             if (!empty($data['password'])) {
@@ -350,7 +420,8 @@ class UserController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users')->ignore($currentUser->id)],
             'username' => ['required', 'string', Rule::unique('users')->ignore($currentUser->id)],
-            'password' => 'nullable|string|min:6',
+            'phone'    => 'nullable|string|max:20',
+            'password' => 'nullable|string|min:8',
         ], [
             'name.required'     => 'Nama pengguna wajib diisi.',
             'email.required'    => 'Email wajib diisi.',
@@ -358,13 +429,14 @@ class UserController extends Controller
             'email.email'       => 'Email yang dimasukkan tidak valid.',
             'username.required' => 'Username wajib diisi.',
             'username.unique'   => 'Username ini sudah dipakai oleh akun lain.',
-            'password.min'      => 'Password minimal 6 karakter.',
+            'password.min'      => 'Password minimal 8 karakter.',
         ]);
 
         DB::beginTransaction();
         try {
             $currentUser->name = $data['name'];
             $currentUser->email = $data['email'];
+            $currentUser->phone = $data['phone'];
             $currentUser->username = $data['username'];
 
             if (!empty($data['password'])) {
