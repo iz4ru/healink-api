@@ -65,7 +65,7 @@
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                 <tr>
                                     <td align="center" style="padding: 0;">
-                                        <a class="cta-button" href="{{ route('password.reset', ['token' => $token, 'email' => $email]) }}"
+                                        <a class="cta-button" href="{{ route('password.reset.form', ['token' => $token, 'email' => $email]) }}"
                                            style="display: inline-block; padding: 16px 40px; background-color: #3A7CF0; color: #ffffff; text-decoration: none; border-radius: 16px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(58, 124, 240, 0.3); text-align: center; min-width: 200px;">
                                             Reset Password
                                         </a>
