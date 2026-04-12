@@ -43,8 +43,8 @@
                                     alt="Healink" 
                                     style="width: 150px; height: auto; display: block; border: 0;">
                             @else
-                                <img src="https://qpzommwsslifngxfotgf.supabase.co/storage/v1/object/public/storage/logo/healink-white.png 
-                                    alt="Healink" 
+                                <img src="https://qpzommwsslifngxfotgf.supabase.co/storage/v1/object/public/storage/logo/healink-white.png"
+                                    alt="Healink"
                                     style="width: 150px; height: auto; display: block; border: 0;">
                             @endif
                         </td>
@@ -59,19 +59,15 @@
                             
                             <p style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #666666; text-align: center;">
                                 Kamu menerima email ini karena ada permintaan reset password untuk akun Healink kamu.
+                                <span>Token kamu: {{ $token }}</span>
                             </p>
                             
                             <!-- CTA Button -->
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                 <tr>
                                     <td align="center" style="padding: 0;">
-                                        @php
-                                            $resetUrl = route('password.reset.form', [
-                                                'token' => $token,
-                                                'email' => urlencode($email)
-                                            ]);
-                                        @endphp
-                                        <a class="cta-button" href="{{ $resetUrl }}"
+                                        <a href="{{ route('password.reset', ['token' => $token, 'email' => $email]) }}"
+                                           class="cta-button"
                                            style="display: inline-block; padding: 16px 40px; background-color: #3A7CF0; color: #ffffff; text-decoration: none; border-radius: 16px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(58, 124, 240, 0.3); text-align: center; min-width: 200px;">
                                             Reset Password
                                         </a>

@@ -80,8 +80,6 @@ class ResetPasswordController extends Controller
             default => 'Terjadi kesalahan saat mereset password. Silakan coba lagi atau minta link reset yang baru.'
         };
 
-        $errorMessage = $errorMessages[$status] ?? 'Terjadi kesalahan saat mereset password. Silakan coba lagi.';
-
         return back()->withErrors(['email' => $errorMessage])->withInput($request->only('email'));
     }
 }
