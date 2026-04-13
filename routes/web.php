@@ -3,6 +3,10 @@
 use App\Http\Controllers\ResetPasswordController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/', function () {
+    return view('welcome');
+})->name('home');
+
 Route::get('/reset-password-with-token/{token}', [ResetPasswordController::class, 'showResetForm'])
     ->name('password.reset');
 
