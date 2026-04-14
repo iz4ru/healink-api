@@ -103,11 +103,13 @@ Route::middleware(['auth:sanctum', 'check.active', 'update.lastseen'])->group(fu
 
             # CRUD Kategori
             Route::post('/categories', [CategoryController::class, 'store']);
+            Route::post('/categories/check-name', [UnitController::class, 'checkName']);
             Route::put('/categories/{id}', [CategoryController::class, 'update'])->whereNumber('id');
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->whereNumber('id');
 
             # CRUD Unit (Jenis Satuan)
             Route::post('/units', [UnitController::class, 'store']);
+            Route::post('/units/check-name', [UnitController::class, 'checkName']);
             Route::put('/units/{id}', [UnitController::class, 'update'])->whereNumber('id');
             Route::delete('/units/{id}', [UnitController::class, 'destroy'])->whereNumber('id');
 

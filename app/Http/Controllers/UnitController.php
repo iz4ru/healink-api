@@ -44,6 +44,37 @@ class UnitController extends Controller
         return response()->json(['success' => true, 'message' => 'Berhasil ditambahkan', 'data' => $item]);
     }
 
+    public function checkName(Request $request)
+    {
+        $cleanName = ucwords(strtolower(trim($request->name)));
+        $request->merge(['name' => $cleanName]);
+
+        $validator = validator(
+            $request->all(),
+            [
+                'name' => 'required|string|max:255|unique:units,name'
+            ],
+            [
+                'name.required' => 'Nama jenis satuan harus diisi.',
+                'name.string'   => 'Nama jenis satuan tidak valid.',
+                'name.max'      => 'Nama jenis satuan sudah mencapai batas karakter maksimal.',
+                'name.unique'   => 'Nama jenis satuan ini sudah terdaftar.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nama kategori tersedia.'
+        ], 200);
+    }
+
     public function update(Request $request, $id) {
         $cleanName = ucwords(strtolower(trim($request->name)));
         $request->merge(['name' => $cleanName]);
